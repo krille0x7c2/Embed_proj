@@ -46,11 +46,8 @@ struct transition {
  * dst_state = where are we headed next.
  */
 struct transition state_transitions[] = {
-    /*If we are in entry and we return ok then go to foo*/
     {entry, ok, ping},
-    /*If we are in entry and we return fail then go to end*/
     {entry, fail, end},
-     /*If we are in foo and we ok then go to bar*/
     {ping, ok, send},
     {ping, fail, ping},
     {ping, repeat, ping},
