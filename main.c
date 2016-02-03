@@ -158,14 +158,13 @@ PORT_OFF(PORT, PINGPIN_B);
 //--------End Trigger Pulse---------------------
 FLIP_PORT(DDR, PINGPIN_A);   // Switch PingPin to INPUT
 FLIP_PORT(DDR, PINGPIN_B);
-loop_until_bit_is_set(PIN, PINGPIN_A);     // Loop until the the PingPin goes high  (macro found in sfr_def.h)
+loop_until_bit_is_set(PIN, PINGPIN_A);     // Loop until the the PingPin goes high 
 loop_until_bit_is_set(PIN, PINGPIN_B);
 //clears timer, reset overflow counter
 reset_timer_0();       //reset timer 0
 reset_timer_2(); 
-loop_until_bit_is_clear(PIN, PINGPIN_A);     // Loop until the the PingPin goes low  (macro found in sfr_def.h)
+loop_until_bit_is_clear(PIN, PINGPIN_A);     // Loop until the the PingPin goes low 
 loop_until_bit_is_clear(PIN, PINGPIN_B);
-//read timer0's overflow counter
 //255 is count before overflow, dependent on clock
 int elapsed_time0=tot_overflow0*255+TCNT0;
 tot_overflow0 = 0;
@@ -226,7 +225,8 @@ ISR(TIMER0_OVF_vect)
     // keep a track of number of overflows
     tot_overflow0++;
 }
-
+// TIMER2 overflow interrupt service routine
+// called whenever TCNT2 overflows
 ISR(TIMER2_OVF_vect)
 {
     // keep a track of number of overflows
