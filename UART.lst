@@ -1,0 +1,108 @@
+   1               		.file	"UART.c"
+   2               	__SP_H__ = 0x3e
+   3               	__SP_L__ = 0x3d
+   4               	__SREG__ = 0x3f
+   5               	__tmp_reg__ = 0
+   6               	__zero_reg__ = 1
+   8               		.text
+   9               	.Ltext0:
+ 116               	.global	USART0Init
+ 118               	USART0Init:
+   1:UART.c        **** #include <avr/io.h>
+   2:UART.c        **** #include <stdio.h>
+   3:UART.c        **** #define USART_BAUDRATE 9600
+   4:UART.c        **** #define UBRR_VALUE (((F_CPU / (USART_BAUDRATE * 16UL))) - 1)
+   5:UART.c        **** 
+   6:UART.c        **** void 
+   7:UART.c        **** USART0Init(void)
+   8:UART.c        **** {
+ 120               	.LM0:
+ 121               	.LFBB1:
+ 122               	/* prologue: function */
+ 123               	/* frame size = 0 */
+ 124               	/* stack size = 0 */
+ 125               	.L__stack_usage = 0
+   9:UART.c        **** // Set baud rate
+  10:UART.c        **** UBRR0H = (uint8_t)(UBRR_VALUE>>8);
+ 127               	.LM1:
+ 128 0000 1092 C500 		sts 197,__zero_reg__
+  11:UART.c        **** UBRR0L = (uint8_t)UBRR_VALUE;
+ 130               	.LM2:
+ 131 0004 87E6      		ldi r24,lo8(103)
+ 132 0006 8093 C400 		sts 196,r24
+  12:UART.c        **** // Set frame format to 8 data bits, no parity, 1 stop bit
+  13:UART.c        **** UCSR0C |= (1<<UCSZ01)|(1<<UCSZ00);
+ 134               	.LM3:
+ 135 000a E2EC      		ldi r30,lo8(-62)
+ 136 000c F0E0      		ldi r31,0
+ 137 000e 8081      		ld r24,Z
+ 138 0010 8660      		ori r24,lo8(6)
+ 139 0012 8083      		st Z,r24
+  14:UART.c        **** //enable transmission and reception
+  15:UART.c        **** UCSR0B |= (1<<RXEN0)|(1<<TXEN0);
+ 141               	.LM4:
+ 142 0014 E1EC      		ldi r30,lo8(-63)
+ 143 0016 F0E0      		ldi r31,0
+ 144 0018 8081      		ld r24,Z
+ 145 001a 8861      		ori r24,lo8(24)
+ 146 001c 8083      		st Z,r24
+ 147 001e 0895      		ret
+ 149               	.Lscope1:
+ 153               	.global	USART0SendByte
+ 155               	USART0SendByte:
+  16:UART.c        **** }
+  17:UART.c        **** 
+  18:UART.c        **** int 
+  19:UART.c        **** USART0SendByte(char u8Data, FILE *stream)
+  20:UART.c        **** {
+ 157               	.LM5:
+ 158               	.LFBB2:
+ 159 0020 CF93      		push r28
+ 160               	/* prologue: function */
+ 161               	/* frame size = 0 */
+ 162               	/* stack size = 1 */
+ 163               	.L__stack_usage = 1
+ 164 0022 C82F      		mov r28,r24
+  21:UART.c        ****    if(u8Data == '\n')
+ 166               	.LM6:
+ 167 0024 8A30      		cpi r24,lo8(10)
+ 168 0026 01F4      		brne .L4
+  22:UART.c        ****       USART0SendByte('\r', 0);
+ 170               	.LM7:
+ 171 0028 60E0      		ldi r22,0
+ 172 002a 70E0      		ldi r23,0
+ 173 002c 8DE0      		ldi r24,lo8(13)
+ 174 002e 0E94 0000 		call USART0SendByte
+ 175               	.L4:
+  23:UART.c        **** //wait while previous byte is completed
+  24:UART.c        **** while(!(UCSR0A&(1<<UDRE0))){};
+ 177               	.LM8:
+ 178 0032 8091 C000 		lds r24,192
+ 179 0036 85FF      		sbrs r24,5
+ 180 0038 00C0      		rjmp .L4
+  25:UART.c        **** // Transmit data
+  26:UART.c        **** UDR0 = u8Data;
+ 182               	.LM9:
+ 183 003a C093 C600 		sts 198,r28
+  27:UART.c        **** return 0;
+  28:UART.c        **** }...
+ 185               	.LM10:
+ 186 003e 80E0      		ldi r24,0
+ 187 0040 90E0      		ldi r25,0
+ 188               	/* epilogue start */
+ 189 0042 CF91      		pop r28
+ 190 0044 0895      		ret
+ 192               	.Lscope2:
+ 194               	.Letext0:
+ 195               		.ident	"GCC: (GNU) 5.3.0"
+DEFINED SYMBOLS
+                            *ABS*:0000000000000000 UART.c
+     /tmp/ccMyhohn.s:2      *ABS*:000000000000003e __SP_H__
+     /tmp/ccMyhohn.s:3      *ABS*:000000000000003d __SP_L__
+     /tmp/ccMyhohn.s:4      *ABS*:000000000000003f __SREG__
+     /tmp/ccMyhohn.s:5      *ABS*:0000000000000000 __tmp_reg__
+     /tmp/ccMyhohn.s:6      *ABS*:0000000000000001 __zero_reg__
+     /tmp/ccMyhohn.s:118    .text:0000000000000000 USART0Init
+     /tmp/ccMyhohn.s:155    .text:0000000000000020 USART0SendByte
+
+NO UNDEFINED SYMBOLS
