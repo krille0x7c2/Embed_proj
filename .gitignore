@@ -13,6 +13,12 @@
 *.a
 *.la
 *.lo
+*.lst
+*.eep
+*.lss
+*.map
+*.sym
+
 
 # Shared objects (inc. Windows DLLs)
 *.dll
