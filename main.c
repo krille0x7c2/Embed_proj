@@ -10,6 +10,7 @@
  *
  * Created on November 21, 2015, 9:11 PM
  */
+/**********************Includes************************************************/
 #define F_CPU 16000000UL
 #include <stdio.h>
 #include <stdlib.h>
@@ -18,21 +19,37 @@
 #include <util/delay.h>
 
 #include "UART.h"
+/**********************End Includes********************************************/
 
+/**********************Prototypes**********************************************/
 int entry_state(void);
 int ping_state(void);
 int send_state(void);
 int exit_state(void);
 
+void reset_timer_0(void);
+void timer0_init(void);
+/**********************End Prototypes******************************************/
+
+/**********************Structures and Variables********************************/
 /*State function pointer collection*/
 int (*state[]) (void) = {entry_state, ping_state, send_state, exit_state};
+
+/*For interrupt vector*/
+volatile uint16_t tot_overflow;
+
+/*For debug*/
+double pin_6 = 0.0;
+double pin_7 = 0.0;
+
+enum event {IN, OUT, NONE};
+/*Used to identify which sensor that tripped first*/
+enum event evt = NONE;
 
 /*List the different state codes*/
 enum state_codes {entry, ping, send, end};
 /*List avaliable return codes*/
 enum ret_codes {ok, fail, repeat};
-
-enum event {IN, OUT, NONE};
 
 /*Structure to hold each x-code*/
 struct transition {
@@ -53,10 +70,16 @@ struct transition state_transitions[] = {
     {ping, ok, send},
     {ping, fail, ping},
     {ping, repeat, ping},
-    {send,ok,entry}
+    {send, ok, entry}
 
 };
 
+//Setup our stream, only write since we don't read
+FILE usart0_str = FDEV_SETUP_STREAM(USART0SendByte, NULL, _FDEV_SETUP_WRITE);
+
+/**********************End Structures and Variables****************************/
+
+/**********************Defines*************************************************/
 #define EXIT_STATE end
 #define ENTRY_STATE entry
 
@@ -75,30 +98,31 @@ struct transition state_transitions[] = {
 #define PIN        PIND
 // #define DEBUG 
 
-/*For interrupt vector*/
-volatile uint16_t tot_overflow;
-/*For debug*/
-double pin_6 = 0.0;
-double pin_7 = 0.0;
+/**********************End Defines*********************************************/
 
-enum event evt = NONE;
-//Setup our stream, only write since we don't read
-FILE usart0_str = FDEV_SETUP_STREAM(USART0SendByte, NULL, _FDEV_SETUP_WRITE);
+/**********************Private functions***************************************/
 
-/*Here we lookup the coresponding action, related to return codes*/
+/* SUMMARY:
+ * Here we lookup the coresponding action, related to return codes
+ * INFO:
+ * 
+ */
 static enum 
 state_codes lookup_transitions(enum state_codes current, enum ret_codes ret) 
 {
     int i = 0;
     enum state_codes temp = end;
     for (i = 0;; ++i) {
-        if (state_transitions[i].src_state == current && state_transitions[i].ret_code == ret) {
+        if (state_transitions[i].src_state == current && 
+            state_transitions[i].ret_code == ret) {
             temp = state_transitions[i].dst_state;
             break;
         }
     }
     return temp;
 }
+
+/**********************End Private functions***********************************/
 
 /**********************Timer initialisation************************************/
 
@@ -113,32 +137,42 @@ state_codes lookup_transitions(enum state_codes current, enum ret_codes ret)
  * 18.5ms, so for maximum period we need to overflow 19 times.
  */
 void 
-timer0_init(void)
+timer0_init()
 {
     /*Prescaler = 64*/
     TCCR0B |= (1 << CS00) | (1 << CS01);
-    TCNT0 = 0;
     /*Enable overflow interrupt*/
     TIMSK0 |= (1 << TOIE0);
+    reset_timer_0();
+}
+
+
+/* SUMMARY:
+ * Here we reset timer register and the overflow counter
+ * INFO:
+ * 
+ */
+void 
+reset_timer_0() 
+{
+    TCNT0 = 0;
     tot_overflow = 0;
 }
 
 /**********************End Timer functionality*********************************/
 
-void 
-reset_timer_0(void) 
-{
-    TCNT0 = 0;
-    tot_overflow = 0;
-}
+/**********************States**************************************************/
 
+/* SUMMARY:
+ * Used to set up our inital state
+ * INFO:
+ * Not used right now.
+ */
 int 
 entry_state() 
 {
     return ok;
 }
-
-
 
 /* SUMMARY:
  * Measure the distance by using ultrasonic waves
@@ -211,6 +245,11 @@ ping_state()
 #endif
 }
 
+/* SUMMARY:
+ * Send in or out
+ * INFO:
+ * Reports the current event and prints distance in cm if debug
+ */
 int 
 send_state() 
 {
@@ -227,19 +266,28 @@ send_state()
 #endif
 }
 
+/* SUMMARY:
+ * Should not end up here
+ * INFO:
+ * Will only be used for testing/debuging
+ */
 int 
 exit_state() 
 {
     printf("We have a problem :-)\n");
     return ok;
 }
+/**********************End states**********************************************/
 
+/**********************Main****************************************************/
 
-/*
- * 
+/* SUMMARY:
+ * Main function
+ * INFO:
+ * Not important
  */
 int 
-main(int argc, char** argv) 
+main(void) 
 {
 
     enum state_codes cur_state = ENTRY_STATE;
@@ -248,7 +296,6 @@ main(int argc, char** argv)
 
     USART0Init();
     sei();
-
     timer0_init();
 
     stdin = stdout = &usart0_str;
@@ -264,9 +311,14 @@ main(int argc, char** argv)
     return (EXIT_SUCCESS);
 }
 
+/**********************End Main************************************************/
+
 /**************************Interrupt service routine*****s*********************/
 
-/* TIMER0 overflow interrupt service routine, called whenever TCNT0 overflows.
+/* SUMMARY:
+ * Interupt service routine for timer 0
+ * INFO:
+ * TIMER0 overflow interrupt service routine, called whenever TCNT0 overflows.
  * Used for PING_A 
  */
 ISR(TIMER0_OVF_vect)
