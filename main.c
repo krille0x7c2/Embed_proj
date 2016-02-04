@@ -17,6 +17,7 @@
 #include <avr/io.h>
 #include <avr/interrupt.h>
 #include <util/delay.h>
+#include <avr/wdt.h>
 
 #include "UART.h"
 /**********************End Includes********************************************/
@@ -37,6 +38,10 @@ int (*state[]) (void) = {entry_state, ping_state, send_state, exit_state};
 
 /*For interrupt vector*/
 volatile uint16_t tot_overflow;
+
+const float TO_CM = 0.0667;
+const float TO_MM = 0.667;
+
 
 /*For debug*/
 double pin_6 = 0.0;
@@ -68,7 +73,7 @@ struct transition state_transitions[] = {
     {entry, ok, ping},
     {entry, fail, end},
     {ping, ok, send},
-    {ping, fail, ping},
+    {ping, fail, end},
     {ping, repeat, ping},
     {send, ok, entry}
 
@@ -96,6 +101,7 @@ FILE usart0_str = FDEV_SETUP_STREAM(USART0SendByte, NULL, _FDEV_SETUP_WRITE);
 #define DDR        DDRD
 #define PORT       PORTD
 #define PIN        PIND
+#define MAXCOUNTER 255
 // #define DEBUG 
 
 /**********************End Defines*********************************************/
@@ -120,6 +126,29 @@ state_codes lookup_transitions(enum state_codes current, enum ret_codes ret)
         }
     }
     return temp;
+}
+
+static void
+echo(double *ping_value,const uint8_t pingpin)
+{
+    int elapsed_time;
+    /* ------Trigger Pulse--------------------------*/
+    PORT_ON(DDR, pingpin);   
+    PORT_OFF(PORT, pingpin);   
+    _delay_us(2);       
+    PORT_ON(PORT, pingpin);    
+    _delay_us(5);       
+    PORT_OFF(PORT, pingpin); 
+    /*--------End Trigger Pulse---------------------*/
+    /*--------Meassure pulse------------------------*/
+    FLIP_PORT(DDR, pingpin);   
+    loop_until_bit_is_set(PIN, pingpin);      
+    reset_timer_0();       
+    loop_until_bit_is_clear(PIN, pingpin);
+    /*--------Stop Meassure pulse-------------------*/
+    elapsed_time = tot_overflow * MAXCOUNTER + TCNT0;
+    *ping_value = elapsed_time * TO_CM;
+    _delay_ms(10);
 }
 
 /**********************End Private functions***********************************/
@@ -188,60 +217,43 @@ int
 ping_state() 
 {
 
-    int elapsed_time;
-    double ping_val0,ping_val1;
-    /* ------Trigger Pulse A--------------------------*/
-    PORT_ON(DDR, PINGPIN_A);   
-    PORT_OFF(PORT, PINGPIN_A);   
-    _delay_us(2);       
-    PORT_ON(PORT, PINGPIN_A);    
-    _delay_us(5);       
-    PORT_OFF(PORT, PINGPIN_A); 
-    /*--------End Trigger Pulse A---------------------*/
-    /*--------Meassure pulse A------------------------*/
-    FLIP_PORT(DDR, PINGPIN_A);   
-    loop_until_bit_is_set(PIN, PINGPIN_A);      
-    reset_timer_0();       
-    loop_until_bit_is_clear(PIN, PINGPIN_A);    
-    /*--------End Meassure pulse A------------------------*/
-
+    double ping_val0,ping_val1;   
+    int counter = 0;
     /* 255 is count before overflow, dependent on clock*/
-    elapsed_time = tot_overflow * 255 + TCNT0;
-    tot_overflow = 0;
-    ping_val0 = elapsed_time * 0.06667;
-    if (ping_val0 <= 90){
-        evt = OUT;
-    }
-    /*Minimum waiting time between measurements is 200us*/
-    _delay_us(250);
-    /* ------Trigger Pulse B--------------------------*/
-    PORT_ON(DDR, PINGPIN_B);
-    PORT_OFF(PORT, PINGPIN_B); 
-    _delay_us(2); 
-    PORT_ON(PORT, PINGPIN_B);
-    _delay_us(5); 
-    PORT_OFF(PORT, PINGPIN_B);
-    /*--------End Trigger Pulse B---------------------*/
-    /*--------Meassure pulse B------------------------*/
-    FLIP_PORT(DDR, PINGPIN_B);
-    loop_until_bit_is_set(PIN, PINGPIN_B);
-    reset_timer_0(); 
-    loop_until_bit_is_clear(PIN, PINGPIN_B);
-    /*--------End Meassure pulse B------------------------*/
+    echo(&ping_val0,PINGPIN_A);
+    echo(&ping_val1,PINGPIN_B);
 
-    elapsed_time = tot_overflow * 255 + TCNT0;
-    tot_overflow = 0;
-    ping_val1 = elapsed_time * 0.06667;
-    if (ping_val1 <= 90){
-        evt = IN;  
+    if (ping_val0 <= 90){
+        do{
+            echo(&ping_val1,PINGPIN_B);
+        }while( ping_val1 >= 90);
+            evt = OUT;
+            while( ping_val1 <= 90)
+                echo(&ping_val1,PINGPIN_B);
+            wdt_reset();
+            return ok;
     }
+
+    if (ping_val1 <= 90){
+        do{
+            echo(&ping_val0,PINGPIN_A);
+        }while( ping_val0 >= 90);
+            evt = IN;
+
+            while( ping_val0 <= 90)
+                echo(&ping_val0,PINGPIN_A);
+            wdt_reset();
+            return ok;
+    }
+
     _delay_ms(50);
+
 #ifdef DEBUG
     pin_6 = ping_val0;
     pin_7 = ping_val1;
     return ok;
 #else
-    return fail ? evt == NONE : ok;
+    return repeat;
 #endif
 }
 
@@ -258,9 +270,9 @@ send_state()
     return ok;
 #else
     if( evt == OUT)
-        printf("Out\n");
+        printf("A\n");
     if( evt == IN)
-        printf("In\n");
+        printf("B\n");
     evt = NONE;
     return ok;
 #endif
@@ -290,6 +302,7 @@ int
 main(void) 
 {
 
+    wdt_enable(WDTO_8S);
     enum state_codes cur_state = ENTRY_STATE;
     enum ret_codes rc;
     int (* state_fun)(void);
