@@ -37,7 +37,7 @@ void timer0_init(void);
 uint8_t (*state[]) (void) = {entry_state, ping_state, send_state, exit_state};
 
 /*For interrupt vector*/
-volatile unsigned long tot_overflow;
+volatile uint8_t tot_overflow;
 
 /*From datasheet, convertion factor*/
 const float TO_CM = 0.0667;
@@ -105,7 +105,7 @@ FILE usart0_str = FDEV_SETUP_STREAM(USART0SendByte, NULL, _FDEV_SETUP_WRITE);
 #define PORT       PORTD
 #define PIN        PIND
 #define MAXCOUNTER 255
-// #define DEBUG 
+#define DEBUG 
 
 /**********************End Defines*********************************************/
 
@@ -388,6 +388,9 @@ main(void)
 ISR(TIMER0_OVF_vect)
 {
     tot_overflow++;
+    /*Integer overflow protection (Not needed but just in case)*/
+    if (tot_overflow >= 20)
+        tot_overflow = 0;
 }
 
 /************************************END***************************************/
