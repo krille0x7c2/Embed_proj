@@ -105,7 +105,7 @@ FILE usart0_str = FDEV_SETUP_STREAM(USART0SendByte, NULL, _FDEV_SETUP_WRITE);
 #define PORT       PORTD
 #define PIN        PIND
 #define MAXCOUNTER 255
-#define DEBUG 
+// #define DEBUG 
 
 /**********************End Defines*********************************************/
 
