@@ -37,11 +37,11 @@ void timer0_init(void);
 uint8_t (*state[]) (void) = {entry_state, ping_state, send_state, exit_state};
 
 /*For interrupt vector*/
-volatile uint16_t tot_overflow;
+volatile unsigned long tot_overflow;
 
 /*From datasheet, convertion factor*/
-const float TO_CM = 0.0667;
-const float TO_MM = 0.667;
+const float TO_CM = 10;
+const float TO_MM = 100;
 
 /*For debug*/
 double pin_6 = 0.0;
@@ -70,12 +70,15 @@ struct transition {
  * dst_state = where are we headed next.
  */
 struct transition state_transitions[] = {
-    {entry, ok, ping},
-    {entry, fail, end},
-    {ping, ok, send},
-    {ping, fail, end},
-    {ping, repeat, ping},
-    {send, ok, entry}
+    {entry, ok,     ping},
+    {entry, fail,   end},
+    {entry, repeat, entry},
+    {ping,  ok,     send},
+    {ping,  fail,   end},
+    {ping,  repeat, ping},
+    {send,  ok,     entry},
+    {send,  fail,   end},
+    {send,  repeat, send}
 
 };
 
@@ -137,12 +140,16 @@ state_codes lookup_transitions(enum state_codes current, enum ret_codes ret)
 /* SUMMARY:
  * Use the PING))) device to meassure the distance
  * INFO:
+ * Speed of sound depends on temperature E.g. C = 331.5 + (0.6xTc)m/s
+ * Meassure by pulling, not exact for meassurements but for our implementation
+ * this is enough.
+ * 
  */
 
 static void
 echo(double *ping_value,const uint8_t pingpin)
 {
-    int elapsed_time;
+    unsigned long elapsed_time;
     /* ------Trigger Pulse--------------------------*/
     PORT_ON(DDR, pingpin);   
     PORT_OFF(PORT, pingpin);   
@@ -157,17 +164,19 @@ echo(double *ping_value,const uint8_t pingpin)
     reset_timer_0();       
     loop_until_bit_is_clear(PIN, pingpin);
     /*--------Stop Meassure pulse-------------------*/
+    
     /* MAXCOUNTER is dependent on timer */
-    elapsed_time = tot_overflow * MAXCOUNTER + TCNT0;
+    elapsed_time = (tot_overflow * 255) + TCNT0;
 
+    /*elapsed time cannot be under 44 respective higher then 4497*/
     if (elapsed_time >= 4497)
     	*ping_value = 0;
     else if (elapsed_time <= 44)
     	*ping_value = 0;
     else
-		*ping_value = elapsed_time * TO_CM;
-
-    _delay_ms(10);
+		*ping_value = (elapsed_time * 0.0667);
+    _delay_us(250);
+    
 }
 
 /**********************End Private functions***********************************/
@@ -230,6 +239,9 @@ entry_state()
  * send out a ultrasonic burst of 40kHz for 200us. Then we wait for the pulse 
  * to come back. Minimum period is 115us maximum period 18.5ms and the width
  * of the pulse comming back, correspond to 29.033us per centimeter.
+ * Since the implementations is targeting slow humans, some toughness is 
+ * introduced in the system, by using _delay functions (just count clock,cy).
+ * 
  *
  */
 uint8_t
@@ -241,35 +253,42 @@ ping_state()
     echo(&ping_val0,PINGPIN_A);
     echo(&ping_val1,PINGPIN_B);
 
-#ifdef DEBUG
     pin_6 = ping_val0;
-    pin_7 = ping_val1;
+    pin_7 = ping_val1; 
+
+#ifdef DEBUG
     return ok;
 #endif
-
-    if (ping_val0 <= 90){
-        do{
-            echo(&ping_val1,PINGPIN_B);
-        }while( ping_val1 >= 90);
-            evt = OUT;
-            while( ping_val1 <= 90)
-                echo(&ping_val1,PINGPIN_B);
-            return ok;
-    }
-
-    if (ping_val1 <= 90){
+        
+    if(ping_val0 <= 90){
         do{
             echo(&ping_val0,PINGPIN_A);
-        }while( ping_val0 >= 90);
-            evt = IN;
-            while( ping_val0 <= 90)
-                echo(&ping_val0,PINGPIN_A);
-            return ok;
-    }
-
-    _delay_ms(50);
-
-    return repeat;
+            _delay_ms(50);
+        }while(ping_val0 <= 90);
+        do{
+            echo(&ping_val1,PINGPIN_B);
+            _delay_ms(50);
+        }while(ping_val1 <= 90);
+            _delay_ms(500);
+        evt = OUT;
+        return ok;
+    }else if(ping_val1 <= 90){
+        do{
+            echo(&ping_val1,PINGPIN_B);
+            _delay_ms(50);
+        }while(ping_val1 <= 90);
+        do{
+            echo(&ping_val0,PINGPIN_A);
+            _delay_ms(50);
+        }while(ping_val0 <= 90);
+        _delay_ms(500);
+        evt = IN;
+        return ok;
+    }else{
+        _delay_ms(50);
+        return repeat;
+    }  
+    return fail;
 }
 
 /* SUMMARY:
@@ -317,7 +336,8 @@ exit_state()
  * Main function
  * INFO:
  * [1] Start by init the watchdog, see wdt.h for macro options. 
- * [2] Init the current state to the entry state and the collection of return codes. 
+ * [2] Init the current state to the entry state and the collection of return 
+ * codes. 
  * [3] Setup the function pointer for the diffrent states. 
  * [4] Init the serial communication and enable global interrupts and 
  * init timer0. 
@@ -333,7 +353,7 @@ exit_state()
 int
 main(void) 
 {
-    wdt_enable(WDTO_8S);
+    // wdt_enable(WDTO_1S);
     enum state_codes cur_state = ENTRY_STATE;
     enum ret_codes rc;
     uint8_t (* state_fun)(void);
@@ -347,11 +367,10 @@ main(void)
     for (;;) {
         state_fun = state[cur_state];
         rc = state_fun();
-        wdt_reset();
+        
         if (EXIT_STATE == cur_state)
             break;
         cur_state = lookup_transitions(cur_state, rc);
-        
     }
     return 0;
 }
