@@ -40,8 +40,8 @@ uint8_t (*state[]) (void) = {entry_state, ping_state, send_state, exit_state};
 volatile unsigned long tot_overflow;
 
 /*From datasheet, convertion factor*/
-const float TO_CM = 10;
-const float TO_MM = 100;
+const float TO_CM = 0.0667;
+const float TO_MM = 0.667;
 
 /*For debug*/
 double pin_6 = 0.0;
@@ -174,7 +174,7 @@ echo(double *ping_value,const uint8_t pingpin)
     else if (elapsed_time <= 44)
     	*ping_value = 0;
     else
-		*ping_value = (elapsed_time * 0.0667);
+		*ping_value = (elapsed_time * TO_CM);
     _delay_us(250);
     
 }
