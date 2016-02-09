@@ -34,22 +34,23 @@ void timer0_init(void);
 
 /**********************Structures and Variables********************************/
 /*State function pointer collection*/
-uint8_t (*state[]) (void) = {entry_state, ping_state, send_state, exit_state};
+static uint8_t (*state[]) (void) = {entry_state, ping_state, send_state, exit_state};
 
 /*For interrupt vector*/
 volatile uint8_t tot_overflow;
 
 /*From datasheet, convertion factor*/
-const float TO_CM = 0.0667;
-const float TO_MM = 0.667;
+static const float TO_CM = 0.0667;
+static const float TO_MM = 0.667;
 
 /*For debug*/
-double pin_6 = 0.0;
-double pin_7 = 0.0;
+static double pin_6 = 0.0;
+static double pin_7 = 0.0;
 
-enum event {IN, OUT, NONE};
+enum event {SENSOR_A_EVT, SENSOR_B_EVT, NONE};
+
 /*Used to identify which sensor that tripped first*/
-enum event evt = NONE;
+static enum event evt = NONE;
 
 /*List the different state codes*/
 enum state_codes {entry, ping, send, end};
@@ -83,7 +84,7 @@ struct transition state_transitions[] = {
 };
 
 //Setup our stream, only write since we don't read
-FILE usart0_str = FDEV_SETUP_STREAM(USART0SendByte, NULL, _FDEV_SETUP_WRITE);
+static FILE usart0_str = FDEV_SETUP_STREAM(USART0SendByte, NULL, _FDEV_SETUP_WRITE);
 
 /**********************End Structures and Variables****************************/
 
@@ -229,6 +230,7 @@ reset_timer_0()
 uint8_t
 entry_state() 
 {
+
     return ok;
 }
 
@@ -248,41 +250,41 @@ uint8_t
 ping_state() 
 {
 
-    double ping_val0,ping_val1;   
+    double sensor_A_val,sensor_B_val;   
 
-    echo(&ping_val0,PINGPIN_A);
-    echo(&ping_val1,PINGPIN_B);
+    echo(&sensor_A_val,PINGPIN_A);
+    echo(&sensor_B_val,PINGPIN_B);
 
-    pin_6 = ping_val0;
-    pin_7 = ping_val1; 
+    pin_6 = sensor_A_val;
+    pin_7 = sensor_B_val; 
 
 #ifdef DEBUG
     return ok;
 #endif
         
-    if(ping_val0 <= 90){
+    if(sensor_A_val <= 90){
         do{
-            echo(&ping_val0,PINGPIN_A);
+            echo(&sensor_A_val,PINGPIN_A);
             _delay_ms(50);
-        }while(ping_val0 <= 90);
+        }while(sensor_A_val <= 90);
         do{
-            echo(&ping_val1,PINGPIN_B);
+            echo(&sensor_B_val,PINGPIN_B);
             _delay_ms(50);
-        }while(ping_val1 <= 90);
+        }while(sensor_B_val <= 90);
             _delay_ms(500);
-        evt = OUT;
+        evt = SENSOR_A_EVT;
         return ok;
-    }else if(ping_val1 <= 90){
+    }else if(sensor_B_val <= 90){
         do{
-            echo(&ping_val1,PINGPIN_B);
+            echo(&sensor_B_val,PINGPIN_B);
             _delay_ms(50);
-        }while(ping_val1 <= 90);
+        }while(sensor_B_val <= 90);
         do{
-            echo(&ping_val0,PINGPIN_A);
+            echo(&sensor_A_val,PINGPIN_A);
             _delay_ms(50);
-        }while(ping_val0 <= 90);
+        }while(sensor_A_val <= 90);
         _delay_ms(500);
-        evt = IN;
+        evt = SENSOR_B_EVT;
         return ok;
     }else{
         _delay_ms(50);
@@ -307,9 +309,9 @@ send_state()
     printf("pin_6 %.1fcm and pin_7 %.1fcm\n", pin_6, pin_7);
     return ok;
 #else
-    if( evt == OUT)
+    if( evt == SENSOR_A_EVT)
         printf("A\n");
-    if( evt == IN)
+    if( evt == SENSOR_B_EVT)
         printf("B\n");
     evt = NONE;
     return ok;
