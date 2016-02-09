@@ -43,13 +43,23 @@ volatile uint8_t tot_overflow;
 static const float TO_CM = 0.0667;
 static const float TO_MM = 0.667;
 
+/*---------------------Startup values, assigned in entry state----------------*/
+
+/*How long will the sensors ping, in cm*/
+static uint8_t threshold;
+/*What distance for each ping should we include, in cm*/
+static uint8_t ping_distance;
+
+/*---------------------End Startup values-------------------------------------*/
+
 /*For debug*/
 static double pin_6 = 0.0;
 static double pin_7 = 0.0;
 
+/*Define the posible events that can occur*/
 enum event {SENSOR_A_EVT, SENSOR_B_EVT, NONE};
 
-/*Used to identify which sensor that tripped first*/
+/*Used to (hold)identify which sensor that tripped first*/
 static enum event evt = NONE;
 
 /*List the different state codes*/
@@ -64,8 +74,8 @@ struct transition {
     enum state_codes dst_state;
 };
 
-/*Array of transitions, or lookup table with transition rules
- * Each state_transition must contain  one 
+/* Array of transitions, or lookup table with transition rules
+ * Each transition must contain  one 
  * src_state = which state do we come from.
  * ret_code = what are the current state returning.
  * dst_state = where are we headed next.
@@ -167,7 +177,7 @@ echo(double *ping_value,const uint8_t pingpin)
     /*--------Stop Meassure pulse-------------------*/
     
     /* MAXCOUNTER is dependent on timer */
-    elapsed_time = (tot_overflow * 255) + TCNT0;
+    elapsed_time = (tot_overflow * MAXCOUNTER) + TCNT0;
 
     /*elapsed time cannot be under 44 respective higher then 4497*/
     if (elapsed_time >= 4497)
@@ -222,14 +232,16 @@ reset_timer_0()
 
 /**********************States**************************************************/
 
-/* SUMMARY:
+/* SUMMARY: TODO
  * Used to set up our inital state
  * INFO:
- * Not used right now.
+ * 2016-02-09 threshold only used 
  */
 uint8_t
 entry_state() 
 {
+    threshold = 90;
+    ping_distance = 200;
 
     return ok;
 }
@@ -262,27 +274,27 @@ ping_state()
     return ok;
 #endif
         
-    if(sensor_A_val <= 90){
+    if(sensor_A_val <= threshold){
         do{
             echo(&sensor_A_val,PINGPIN_A);
             _delay_ms(50);
-        }while(sensor_A_val <= 90);
+        }while(sensor_A_val <= threshold);
         do{
             echo(&sensor_B_val,PINGPIN_B);
             _delay_ms(50);
-        }while(sensor_B_val <= 90);
+        }while(sensor_B_val <= threshold);
             _delay_ms(500);
         evt = SENSOR_A_EVT;
         return ok;
-    }else if(sensor_B_val <= 90){
+    }else if(sensor_B_val <= threshold){
         do{
             echo(&sensor_B_val,PINGPIN_B);
             _delay_ms(50);
-        }while(sensor_B_val <= 90);
+        }while(sensor_B_val <= threshold);
         do{
             echo(&sensor_A_val,PINGPIN_A);
             _delay_ms(50);
-        }while(sensor_A_val <= 90);
+        }while(sensor_A_val <= threshold);
         _delay_ms(500);
         evt = SENSOR_B_EVT;
         return ok;
