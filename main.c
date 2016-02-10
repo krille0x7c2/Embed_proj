@@ -89,7 +89,7 @@ struct transition state_transitions[] = {
     {ping,  ok,     send},
     {ping,  fail,   end},
     {ping,  repeat, ping},
-    {send,  ok,     entry},
+    {send,  ok,     ping},
     {send,  fail,   end},
     {send,  repeat, send}
 
