@@ -264,8 +264,7 @@ entry_state()
  * INFO:
  * The Ping sensor sends a trigger pulse of 5us, which makes the ping sensor
  * send out a ultrasonic burst of 40kHz for 200us. Then we wait for the pulse 
- * to come back. Minimum period is 115us maximum period 18.5ms and the width
- * of the pulse comming back, correspond to 29.033us per centimeter.
+ * to come back.
  * Since the implementations is targeting slow humans, some toughness is 
  * introduced in the system, by using _delay functions (just count clock,cy).
  * 
