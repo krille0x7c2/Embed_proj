@@ -47,8 +47,10 @@ static const float TO_MM = 0.667;
 
 /*How long will the sensors ping, in cm*/
 static uint8_t threshold;
-/*What distance for each ping should we include, in cm*/
-static uint8_t ping_distance;
+/*What max distance for each ping should we include*/
+static uint16_t ping_distance_max;
+/*What min distance for each ping should we include*/
+static uint16_t ping_distance_min;
 
 /*---------------------End Startup values-------------------------------------*/
 
@@ -148,10 +150,18 @@ state_codes lookup_transitions(enum state_codes current, enum ret_codes ret)
     return temp;
 }
 
-/* SUMMARY:
+/* SUMMARY:TODO fix calculations
  * Use the PING))) device to meassure the distance
  * INFO:
- * Speed of sound depends on temperature E.g. C = 331.5 + (0.6xTc)m/s
+ * C_CPU / 64 = 250kH one clock cycle 1/250kH = 4us
+ * Resolution 4us*(1+255) = 1.024ms/255 = 4.016us each tick
+ * The width of the pulse per centimeter is according to the datasheet
+ * 29.033us/cm so maximum width of 300cm would be 29.033 * 600cm = 17.41ms round
+ * trip time yeilding a upper limit of elapsed time to 17 * 255 + (255 * 0.41) =
+ * 4439
+ * minimum width of the pulse would be 29.033 * 4cm = 1.161us yeilding a lower
+ * limit to (1.024ms/0.1161ms) = 255 / 8.81 = ~28
+ * Speed of sound depends on temperature E.g. C = 331.5 + (0.6 x Tc)m/s
  * Meassure by pulling, not exact for meassurements but for our implementation
  * this is enough.
  * 
@@ -160,7 +170,8 @@ state_codes lookup_transitions(enum state_codes current, enum ret_codes ret)
 static void
 echo(double *ping_value,const uint8_t pingpin)
 {
-    unsigned long elapsed_time;
+    /*Round-trip-time, unit microseconds*/
+    uint16_t elapsed_time;
     /* ------Trigger Pulse--------------------------*/
     PORT_ON(DDR, pingpin);   
     PORT_OFF(PORT, pingpin);   
@@ -179,10 +190,10 @@ echo(double *ping_value,const uint8_t pingpin)
     /* MAXCOUNTER is dependent on timer */
     elapsed_time = (tot_overflow * MAXCOUNTER) + TCNT0;
 
-    /*elapsed time cannot be under 44 respective higher then 4497*/
-    if (elapsed_time >= 4497)
+    /*Elapsed time simple filter*/
+    if (elapsed_time >= ping_distance_max)
     	*ping_value = 0;
-    else if (elapsed_time <= 44)
+    else if (elapsed_time <= ping_distance_min)
     	*ping_value = 0;
     else
 		*ping_value = (elapsed_time * TO_CM);
@@ -236,12 +247,14 @@ reset_timer_0()
  * Used to set up our inital state
  * INFO:
  * 2016-02-09 threshold only used 
+ * 2016-02-10 ping distance added
  */
 uint8_t
 entry_state() 
 {
     threshold = 90;
-    ping_distance = 200;
+    ping_distance_max = 17 * 255 + (255 * 0.41);
+    ping_distance_min = 0 * 255 + (255 / 8.82);
 
     return ok;
 }
