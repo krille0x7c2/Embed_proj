@@ -254,7 +254,7 @@ entry_state()
 {
     threshold = 90;
     ping_distance_max = 17 * 255 + (255 * 0.41);
-    ping_distance_min = 0 * 255 + (255 / 8.82);
+    ping_distance_min = (255 / 8.82);
 
     return ok;
 }
