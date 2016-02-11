@@ -116,7 +116,7 @@ static FILE uart0_str = FDEV_SETUP_STREAM(UART0SendByte, NULL, _FDEV_SETUP_WRITE
 #define PORT       PORTD
 #define PIN        PIND
 #define MAXCOUNTER 255
-#define DEBUG 
+// #define DEBUG 
 
 /**********************End Defines*********************************************/
 
@@ -288,12 +288,21 @@ ping_state()
         do{
             echo(&sensor_A_val,PINGPIN_A);
             _delay_ms(50);
+
         }while(sensor_A_val <= threshold);
+        echo(&sensor_B_val,PINGPIN_B);
+
+        while(sensor_B_val >= 90)
+            echo(&sensor_B_val,PINGPIN_B);
+
+        if(ping_distance_min)
+            ping_distance_min=10;
         do{
             echo(&sensor_B_val,PINGPIN_B);
             _delay_ms(50);
         }while(sensor_B_val <= threshold);
             _delay_ms(500);
+        
         evt = SENSOR_A_EVT;
         return ok;
     }else if(sensor_B_val <= threshold){
@@ -301,6 +310,12 @@ ping_state()
             echo(&sensor_B_val,PINGPIN_B);
             _delay_ms(50);
         }while(sensor_B_val <= threshold);
+
+        echo(&sensor_A_val,PINGPIN_A);
+
+        while(sensor_A_val >= 90)
+            echo(&sensor_A_val,PINGPIN_A);
+            
         do{
             echo(&sensor_A_val,PINGPIN_A);
             _delay_ms(50);
