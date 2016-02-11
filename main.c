@@ -116,7 +116,7 @@ static FILE uart0_str = FDEV_SETUP_STREAM(UART0SendByte, NULL, _FDEV_SETUP_WRITE
 #define PORT       PORTD
 #define PIN        PIND
 #define MAXCOUNTER 255
-#define DEBUG 
+// #define DEBUG 
 
 /**********************End Defines*********************************************/
 
