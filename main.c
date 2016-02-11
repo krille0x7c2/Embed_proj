@@ -40,16 +40,12 @@ volatile uint8_t tot_overflow;
 static const float TO_CM = 0.0667;
 static const float TO_MM = 0.667;
 
-/*---------------------Startup values, assigned in entry state----------------*/
-
 /*How long will the sensors ping, in cm*/
-static uint8_t threshold;
-/*What max distance for each ping should we include*/
-static uint16_t ping_distance_max;
-/*What min distance for each ping should we include*/
-static uint16_t ping_distance_min;
-
-/*---------------------End Startup values-------------------------------------*/
+static const uint8_t threshold = 90;
+/*Max duration for each ping to return*/
+static const uint16_t ping_distance_max = 4439;
+/*Min duration for each ping to return*/
+static const uint16_t ping_distance_min = 44;
 
 /*For debug*/
 static double pin_6 = 0.0;
@@ -249,10 +245,6 @@ reset_timer_0()
 uint8_t
 entry_state() 
 {
-    threshold = 90;
-    ping_distance_max = 4439;
-    ping_distance_min = 44;
-
     return ok;
 }
 
@@ -287,21 +279,21 @@ ping_state()
         
     if((sa = sensor_A_val) <= threshold || (sb = sensor_B_val) <= threshold){
 
-        if(sa<90){
-            while(sensor_A_val <= 90){
+        if(sa<threshold){
+            while(sensor_A_val <= threshold){
                 echo(&sensor_A_val,PINGPIN_A);
                 _delay_ms(20);
             }
-            while(sensor_B_val <= 90 && sensor_A_val <= 90){
+            while(sensor_B_val <= threshold && sensor_A_val <= threshold){
                 echo(&sensor_B_val,PINGPIN_B);
                 echo(&sensor_A_val,PINGPIN_A);
                 _delay_ms(20);
             }
-            while(sensor_B_val >= 90){
+            while(sensor_B_val >= threshold){
                 echo(&sensor_B_val,PINGPIN_B);
                 _delay_ms(20);
             }
-            while(sensor_B_val <= 90){
+            while(sensor_B_val <= threshold){
                 echo(&sensor_B_val,PINGPIN_B);
                 _delay_ms(20);
             }
@@ -309,28 +301,27 @@ ping_state()
             return ok;
         }
 
-        if(sb<90){
-            while(sensor_B_val <= 90){
+        if(sb<threshold){
+            while(sensor_B_val <= threshold){
                 echo(&sensor_B_val,PINGPIN_B);
                 _delay_ms(20);
             }
-            while(sensor_B_val <= 90 && sensor_A_val <= 90){
+            while(sensor_B_val <= threshold && sensor_A_val <= threshold){
                 echo(&sensor_B_val,PINGPIN_B);
                 echo(&sensor_A_val,PINGPIN_A);
                 _delay_ms(20);
             }
-            while(sensor_A_val >= 90){
+            while(sensor_A_val >= threshold){
                 echo(&sensor_A_val,PINGPIN_A);
                 _delay_ms(20);
             }
-            while(sensor_A_val <= 90){
+            while(sensor_A_val <= threshold){
                 echo(&sensor_A_val,PINGPIN_A);
                 _delay_ms(20);
             }
             evt = SENSOR_B_EVT;
             return ok;
         }
-        
     }else{
         _delay_ms(20);
         return repeat;
