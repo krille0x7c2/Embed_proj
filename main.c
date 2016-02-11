@@ -41,7 +41,7 @@ static const float TO_CM = 0.0667;
 static const float TO_MM = 0.667;
 
 /*How long will the sensors ping, in cm*/
-static const uint8_t threshold = 90;
+static const uint8_t x_cm = 90;
 /*Max duration for each ping to return*/
 static const uint16_t ping_distance_max = 4439;
 /*Min duration for each ping to return*/
@@ -111,6 +111,10 @@ static FILE uart0_str = FDEV_SETUP_STREAM(UART0SendByte, NULL, _FDEV_SETUP_WRITE
 #define PORT       PORTD
 #define PIN        PIND
 #define MAXCOUNTER 255
+#define loop_until_sensor_is_unblocked(x,y)\
+        do{echo(x,y); _delay_ms(20);} while(*x <= 90)
+#define loop_until_sensor_is_blocked(x,y)\
+        do{echo(x,y); _delay_ms(20);} while(*x >= 90)
 // #define DEBUG 
 
 /**********************End Defines*********************************************/
@@ -239,7 +243,7 @@ reset_timer_0()
 /* SUMMARY: TODO
  * Used to set up our inital state
  * INFO:
- * 2016-02-09 threshold only used 
+ * 2016-02-09 x_cm only used 
  * 2016-02-10 ping distance added
  */
 uint8_t
@@ -277,51 +281,24 @@ ping_state()
     return ok;
 #endif
         
-    if((sa = sensor_A_val) <= threshold || (sb = sensor_B_val) <= threshold){
+    if(sensor_A_val <= x_cm){
 
-        if(sa<threshold){
-            while(sensor_A_val <= threshold){
-                echo(&sensor_A_val,PINGPIN_A);
-                _delay_ms(20);
-            }
-            while(sensor_B_val <= threshold && sensor_A_val <= threshold){
-                echo(&sensor_B_val,PINGPIN_B);
-                echo(&sensor_A_val,PINGPIN_A);
-                _delay_ms(20);
-            }
-            while(sensor_B_val >= threshold){
-                echo(&sensor_B_val,PINGPIN_B);
-                _delay_ms(20);
-            }
-            while(sensor_B_val <= threshold){
-                echo(&sensor_B_val,PINGPIN_B);
-                _delay_ms(20);
-            }
-            evt = SENSOR_A_EVT;
-            return ok;
-        }
+        loop_until_sensor_is_unblocked(&sensor_A_val,PINGPIN_A);
+        loop_until_sensor_is_blocked(&sensor_B_val,PINGPIN_B);
+        loop_until_sensor_is_unblocked(&sensor_B_val,PINGPIN_B);
 
-        if(sb<threshold){
-            while(sensor_B_val <= threshold){
-                echo(&sensor_B_val,PINGPIN_B);
-                _delay_ms(20);
-            }
-            while(sensor_B_val <= threshold && sensor_A_val <= threshold){
-                echo(&sensor_B_val,PINGPIN_B);
-                echo(&sensor_A_val,PINGPIN_A);
-                _delay_ms(20);
-            }
-            while(sensor_A_val >= threshold){
-                echo(&sensor_A_val,PINGPIN_A);
-                _delay_ms(20);
-            }
-            while(sensor_A_val <= threshold){
-                echo(&sensor_A_val,PINGPIN_A);
-                _delay_ms(20);
-            }
-            evt = SENSOR_B_EVT;
-            return ok;
-        }
+        evt = SENSOR_A_EVT;
+        return ok;
+
+    }else if(sensor_B_val <= x_cm){
+
+        loop_until_sensor_is_unblocked(&sensor_B_val,PINGPIN_B);
+        loop_until_sensor_is_blocked(&sensor_A_val,PINGPIN_A);
+        loop_until_sensor_is_unblocked(&sensor_A_val,PINGPIN_A);
+
+        evt = SENSOR_B_EVT;
+        return ok;
+        
     }else{
         _delay_ms(20);
         return repeat;
