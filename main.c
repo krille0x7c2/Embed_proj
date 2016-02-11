@@ -281,7 +281,9 @@ ping_state()
     return ok;
 #endif
         
-    if(sensor_A_val <= x_cm){
+    if(sensor_A_val <= x_cm && sensor_B_val <= x_cm){
+        return repeat;
+    }else if(sensor_A_val <= x_cm){
 
         loop_until_sensor_is_unblocked(&sensor_A_val,PINGPIN_A);
         loop_until_sensor_is_blocked(&sensor_B_val,PINGPIN_B);
@@ -298,7 +300,7 @@ ping_state()
 
         evt = SENSOR_B_EVT;
         return ok;
-        
+
     }else{
         _delay_ms(20);
         return repeat;
