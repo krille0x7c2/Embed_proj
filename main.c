@@ -17,7 +17,6 @@
 #include <avr/io.h>
 #include <avr/interrupt.h>
 #include <util/delay.h>
-#include <avr/wdt.h>
 
 #include "UART.h"
 /**********************End Includes********************************************/
@@ -379,7 +378,6 @@ exit_state()
 int
 main(void) 
 {
-    // wdt_enable(WDTO_1S);
     enum state_codes cur_state = ENTRY_STATE;
     enum ret_codes rc;
     uint8_t (* state_fun)(void);
