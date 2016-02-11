@@ -11,7 +11,6 @@
  * Created on November 21, 2015, 9:11 PM
  */
 /**********************Includes************************************************/
-#define F_CPU 16000000UL
 #include <stdio.h>
 #include <stdlib.h>
 #include <avr/io.h>
@@ -95,7 +94,7 @@ struct transition state_transitions[] = {
 };
 
 //Setup our stream, only write since we don't read
-static FILE usart0_str = FDEV_SETUP_STREAM(USART0SendByte, NULL, _FDEV_SETUP_WRITE);
+static FILE uart0_str = FDEV_SETUP_STREAM(UART0SendByte, NULL, _FDEV_SETUP_WRITE);
 
 /**********************End Structures and Variables****************************/
 
@@ -117,7 +116,7 @@ static FILE usart0_str = FDEV_SETUP_STREAM(USART0SendByte, NULL, _FDEV_SETUP_WRI
 #define PORT       PORTD
 #define PIN        PIND
 #define MAXCOUNTER 255
-// #define DEBUG 
+#define DEBUG 
 
 /**********************End Defines*********************************************/
 
@@ -189,7 +188,7 @@ echo(double *ping_value,const uint8_t pingpin)
     /* MAXCOUNTER is dependent on timer */
     elapsed_time = (tot_overflow * MAXCOUNTER) + TCNT0;
 
-    /*Elapsed time simple filter*/
+    /*Simple band-pass filter*/
     if (elapsed_time >= ping_distance_max)
     	*ping_value = 0;
     else if (elapsed_time <= ping_distance_min)
@@ -252,8 +251,8 @@ uint8_t
 entry_state() 
 {
     threshold = 90;
-    ping_distance_max = 17 * 255 + (255 * 0.41);
-    ping_distance_min = (255 / 8.82);
+    ping_distance_max = 4439;
+    ping_distance_min = 28;
 
     return ok;
 }
@@ -382,11 +381,11 @@ main(void)
     enum ret_codes rc;
     uint8_t (* state_fun)(void);
 
-    USART0Init();
+    UART0Init();
     sei();
     timer0_init();
 
-    stdin = stdout = &usart0_str;
+    stdin = stdout = &uart0_str;
     
     for (;;) {
         state_fun = state[cur_state];
